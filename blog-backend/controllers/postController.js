@@ -11,13 +11,10 @@ const buildMediaURL = (fileId) => `/uploads/${fileId}`; // Serve media via stati
 export const createPost = async (req, res) => {
   try {
     const { title, content, tags } = req.body;
-    if (!title || !content) {
-      return res.status(400).json({ message: 'Title and content are required' });
-    }
+    if (!title || !content) return res.status(400).json({ message: 'Title and content are required' });
 
     const slug = slugify(title, { lower: true, strict: true });
 
-    // Handle multiple media files
     const media = req.files
       ? req.files.map(file => ({
           fileId: file.filename,
@@ -42,7 +39,7 @@ export const createPost = async (req, res) => {
   }
 };
 
-// -------------------- Get All Posts --------------------
+// -------------------- Get Posts --------------------
 export const getPosts = async (req, res) => {
   try {
     const posts = await Post.find()
@@ -82,28 +79,22 @@ export const updatePost = async (req, res) => {
     const post = await Post.findById(req.params.id);
     if (!post) return res.status(404).json({ message: 'Post not found' });
 
-    // Only author or admin can update
     if (post.author.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
       return res.status(403).json({ message: 'Not allowed' });
     }
 
     const { title, content, tags } = req.body;
-
-    if (title) {
-      post.title = title;
-      post.slug = slugify(title, { lower: true, strict: true });
-    }
+    if (title) { post.title = title; post.slug = slugify(title, { lower: true, strict: true }); }
     if (content) post.content = content;
     if (tags) post.tags = tags.split(',').map(t => t.trim());
 
-    // Handle new media files
     if (req.files && req.files.length > 0) {
       const newMedia = req.files.map(file => ({
         fileId: file.filename,
         mimeType: file.mimetype,
         url: buildMediaURL(file.filename),
       }));
-      post.media = [...post.media, ...newMedia]; // append new media
+      post.media = [...post.media, ...newMedia];
     }
 
     await post.save();
@@ -119,13 +110,12 @@ export const deletePost = async (req, res) => {
     const post = await Post.findById(req.params.id);
     if (!post) return res.status(404).json({ message: 'Post not found' });
 
-    // Only author or admin can delete
     if (post.author.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
       return res.status(403).json({ message: 'Not allowed' });
     }
 
-    // Delete media files from uploads folder
-    if (post.media && post.media.length > 0) {
+    // Remove media files
+    if (post.media?.length) {
       post.media.forEach(m => {
         const filePath = path.join(process.cwd(), 'uploads', m.fileId);
         if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
@@ -139,18 +129,15 @@ export const deletePost = async (req, res) => {
   }
 };
 
-// -------------------- Like/Unlike Post --------------------
+// -------------------- Like/Unlike --------------------
 export const likePost = async (req, res) => {
   try {
     const post = await Post.findById(req.params.id);
     if (!post) return res.status(404).json({ message: 'Post not found' });
 
     const userId = req.user._id.toString();
-    if (!post.likes.map(l => l.toString()).includes(userId)) {
-      post.likes.push(req.user._id);
-    } else {
-      post.likes = post.likes.filter(u => u.toString() !== userId);
-    }
+    if (!post.likes.map(l => l.toString()).includes(userId)) post.likes.push(req.user._id);
+    else post.likes = post.likes.filter(u => u.toString() !== userId);
 
     await post.save();
     res.json({ likes: post.likes.length });
@@ -168,21 +155,13 @@ export const commentPost = async (req, res) => {
     const post = await Post.findById(req.params.id);
     if (!post) return res.status(404).json({ message: 'Post not found' });
 
-    const comment = await Comment.create({
-      text,
-      user: req.user._id,
-      post: post._id,
-    });
-
+    const comment = await Comment.create({ text, user: req.user._id, post: post._id });
     post.comments.push(comment._id);
     await post.save();
 
     const updatedPost = await Post.findById(post._id)
       .populate('author', 'username')
-      .populate({
-        path: 'comments',
-        populate: { path: 'user', select: 'username' },
-      });
+      .populate({ path: 'comments', populate: { path: 'user', select: 'username' } });
 
     res.json(updatedPost);
   } catch (error) {
