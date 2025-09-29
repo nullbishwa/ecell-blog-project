@@ -5,26 +5,25 @@ import path from 'path';
 import fs from 'fs';
 
 // -------------------- Helpers --------------------
-const buildMediaURL = (fileId) => `/uploads/${fileId}`; // Serve media via static route
+const buildMediaURL = (fileId, mimeType) => ({
+  fileId,
+  type: mimeType.startsWith('image/') ? 'image' : 'video',
+  mimeType,
+  url: `/uploads/${fileId}`,
+});
 
 // -------------------- Create Post --------------------
 export const createPost = async (req, res) => {
   try {
     const { title, content, tags } = req.body;
+
     if (!title || !content) {
       return res.status(400).json({ message: 'Title and content are required' });
     }
 
     const slug = slugify(title, { lower: true, strict: true });
 
-    // Handle multiple media files
-    const media = req.files
-      ? req.files.map(file => ({
-          fileId: file.filename,
-          type: file.mimetype,           // ✅ Must match schema
-          url: buildMediaURL(file.filename),
-        }))
-      : [];
+    const media = req.files ? req.files.map(f => buildMediaURL(f.filename, f.mimetype)) : [];
 
     const post = await Post.create({
       title,
@@ -34,6 +33,9 @@ export const createPost = async (req, res) => {
       media,
       author: req.user._id,
     });
+
+    // Populate author before sending
+    await post.populate('author', 'username role');
 
     res.status(201).json(post);
   } catch (error) {
@@ -87,7 +89,6 @@ export const updatePost = async (req, res) => {
     }
 
     const { title, content, tags } = req.body;
-
     if (title) {
       post.title = title;
       post.slug = slugify(title, { lower: true, strict: true });
@@ -95,17 +96,15 @@ export const updatePost = async (req, res) => {
     if (content) post.content = content;
     if (tags) post.tags = tags.split(',').map(t => t.trim());
 
-    // Handle new media files
+    // Append new media files
     if (req.files && req.files.length > 0) {
-      const newMedia = req.files.map(file => ({
-        fileId: file.filename,
-        type: file.mimetype,           // ✅ Must match schema
-        url: buildMediaURL(file.filename),
-      }));
+      const newMedia = req.files.map(f => buildMediaURL(f.filename, f.mimetype));
       post.media = [...post.media, ...newMedia];
     }
 
     await post.save();
+    await post.populate('author', 'username role');
+
     res.json(post);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -122,7 +121,7 @@ export const deletePost = async (req, res) => {
       return res.status(403).json({ message: 'Not allowed' });
     }
 
-    // Delete media files from uploads folder
+    // Delete media files from disk
     if (post.media && post.media.length > 0) {
       post.media.forEach(m => {
         const filePath = path.join(process.cwd(), 'uploads', m.fileId);
@@ -176,7 +175,7 @@ export const commentPost = async (req, res) => {
     await post.save();
 
     const updatedPost = await Post.findById(post._id)
-      .populate('author', 'username')
+      .populate('author', 'username role')
       .populate({
         path: 'comments',
         populate: { path: 'user', select: 'username' },
