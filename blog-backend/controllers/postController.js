@@ -19,7 +19,7 @@ export const createPost = async (req, res) => {
     // Handle uploaded files
     const media = req.files
       ? req.files.map(file => ({
-          fileId: file.filename,   // multer saves with filename
+          fileId: file.filename,
           mimeType: file.mimetype,
         }))
       : [];
@@ -66,6 +66,7 @@ export const getPost = async (req, res) => {
         path: 'comments',
         populate: { path: 'user', select: 'username' },
       });
+
     if (!post) return res.status(404).json({ message: 'Post not found' });
     res.json(post);
   } catch (error) {
@@ -80,10 +81,7 @@ export const updatePost = async (req, res) => {
     if (!post) return res.status(404).json({ message: 'Post not found' });
 
     // Only author or admin can update
-    if (
-      post.author.toString() !== req.user._id.toString() &&
-      req.user.role !== 'admin'
-    ) {
+    if (post.author.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
       return res.status(403).json({ message: 'Not allowed' });
     }
 
@@ -102,7 +100,7 @@ export const updatePost = async (req, res) => {
         fileId: file.filename,
         mimeType: file.mimetype,
       }));
-      post.media = [...post.media, ...newMedia]; // append
+      post.media = [...post.media, ...newMedia];
     }
 
     await post.save();
@@ -119,10 +117,7 @@ export const deletePost = async (req, res) => {
     if (!post) return res.status(404).json({ message: 'Post not found' });
 
     // Only author or admin can delete
-    if (
-      post.author.toString() !== req.user._id.toString() &&
-      req.user.role !== 'admin'
-    ) {
+    if (post.author.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
       return res.status(403).json({ message: 'Not allowed' });
     }
 
@@ -150,7 +145,6 @@ export const likePost = async (req, res) => {
     if (!post) return res.status(404).json({ message: 'Post not found' });
 
     const userId = req.user._id.toString();
-
     if (!post.likes.map(l => l.toString()).includes(userId)) {
       post.likes.push(req.user._id);
     } else {
