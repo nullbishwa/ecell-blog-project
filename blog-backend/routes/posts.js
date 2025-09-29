@@ -42,6 +42,9 @@ const fileFilter = (req, file, cb) => {
 // ------------------ Multer instance ------------------
 const upload = multer({ storage, fileFilter });
 
+// ------------------ Serve uploaded files ------------------
+router.use("/uploads", express.static(uploadDir));
+
 // ------------------ Routes ------------------
 
 // Get all posts
