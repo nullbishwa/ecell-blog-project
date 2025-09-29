@@ -1,16 +1,24 @@
-import Post from '../models/Post.js';
-import Comment from '../models/Comment.js';
-import slugify from 'slugify';
-import path from 'path';
-import fs from 'fs';
+import Post from "../models/Post.js";
+import Comment from "../models/Comment.js";
+import slugify from "slugify";
+import path from "path";
+import fs from "fs";
 
 // -------------------- Helpers --------------------
-const buildMediaURL = (fileId, mimeType) => ({
-  fileId,
-  type: mimeType.startsWith('image/') ? 'image' : 'video',
-  mimeType,
-  url: `/uploads/${fileId}`,
-});
+const buildMediaURL = (fileId, mimeType) => {
+  const type = mimeType.startsWith("image/")
+    ? "image"
+    : mimeType.startsWith("video/")
+    ? "video"
+    : "other";
+
+  return {
+    fileId,
+    type, // ✅ always set type
+    mimeType,
+    url: `/uploads/${fileId}`,
+  };
+};
 
 // -------------------- Create Post --------------------
 export const createPost = async (req, res) => {
@@ -18,28 +26,30 @@ export const createPost = async (req, res) => {
     const { title, content, tags } = req.body;
 
     if (!title || !content) {
-      return res.status(400).json({ message: 'Title and content are required' });
+      return res.status(400).json({ message: "Title and content are required" });
     }
 
     const slug = slugify(title, { lower: true, strict: true });
 
-    const media = req.files ? req.files.map(f => buildMediaURL(f.filename, f.mimetype)) : [];
+    const media = req.files
+      ? req.files.map((f) => buildMediaURL(f.filename, f.mimetype))
+      : [];
 
     const post = await Post.create({
       title,
       slug,
       content,
-      tags: tags ? tags.split(',').map(t => t.trim()) : [],
+      tags: tags ? tags.split(",").map((t) => t.trim()) : [],
       media,
       author: req.user._id,
     });
 
-    // Populate author before sending
-    await post.populate('author', 'username role');
+    // Populate author
+    await post.populate("author", "username role");
 
-    res.status(201).json(post);
+    res.status(201).json(post); // ✅ includes slug in response
   } catch (error) {
-    console.error('Error creating post:', error);
+    console.error("Error creating post:", error);
     res.status(500).json({ message: error.message });
   }
 };
@@ -48,10 +58,10 @@ export const createPost = async (req, res) => {
 export const getPosts = async (req, res) => {
   try {
     const posts = await Post.find()
-      .populate('author', 'username role')
+      .populate("author", "username role")
       .populate({
-        path: 'comments',
-        populate: { path: 'user', select: 'username' },
+        path: "comments",
+        populate: { path: "user", select: "username" },
       })
       .sort({ createdAt: -1 });
 
@@ -65,13 +75,13 @@ export const getPosts = async (req, res) => {
 export const getPost = async (req, res) => {
   try {
     const post = await Post.findOne({ slug: req.params.slug })
-      .populate('author', 'username role')
+      .populate("author", "username role")
       .populate({
-        path: 'comments',
-        populate: { path: 'user', select: 'username' },
+        path: "comments",
+        populate: { path: "user", select: "username" },
       });
 
-    if (!post) return res.status(404).json({ message: 'Post not found' });
+    if (!post) return res.status(404).json({ message: "Post not found" });
     res.json(post);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -82,10 +92,13 @@ export const getPost = async (req, res) => {
 export const updatePost = async (req, res) => {
   try {
     const post = await Post.findById(req.params.id);
-    if (!post) return res.status(404).json({ message: 'Post not found' });
+    if (!post) return res.status(404).json({ message: "Post not found" });
 
-    if (post.author.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
-      return res.status(403).json({ message: 'Not allowed' });
+    if (
+      post.author.toString() !== req.user._id.toString() &&
+      req.user.role !== "admin"
+    ) {
+      return res.status(403).json({ message: "Not allowed" });
     }
 
     const { title, content, tags } = req.body;
@@ -94,16 +107,18 @@ export const updatePost = async (req, res) => {
       post.slug = slugify(title, { lower: true, strict: true });
     }
     if (content) post.content = content;
-    if (tags) post.tags = tags.split(',').map(t => t.trim());
+    if (tags) post.tags = tags.split(",").map((t) => t.trim());
 
-    // Append new media files
+    // Append new media
     if (req.files && req.files.length > 0) {
-      const newMedia = req.files.map(f => buildMediaURL(f.filename, f.mimetype));
+      const newMedia = req.files.map((f) =>
+        buildMediaURL(f.filename, f.mimetype)
+      );
       post.media = [...post.media, ...newMedia];
     }
 
     await post.save();
-    await post.populate('author', 'username role');
+    await post.populate("author", "username role");
 
     res.json(post);
   } catch (error) {
@@ -115,22 +130,25 @@ export const updatePost = async (req, res) => {
 export const deletePost = async (req, res) => {
   try {
     const post = await Post.findById(req.params.id);
-    if (!post) return res.status(404).json({ message: 'Post not found' });
+    if (!post) return res.status(404).json({ message: "Post not found" });
 
-    if (post.author.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
-      return res.status(403).json({ message: 'Not allowed' });
+    if (
+      post.author.toString() !== req.user._id.toString() &&
+      req.user.role !== "admin"
+    ) {
+      return res.status(403).json({ message: "Not allowed" });
     }
 
     // Delete media files from disk
     if (post.media && post.media.length > 0) {
-      post.media.forEach(m => {
-        const filePath = path.join(process.cwd(), 'uploads', m.fileId);
+      post.media.forEach((m) => {
+        const filePath = path.join(process.cwd(), "uploads", m.fileId);
         if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
       });
     }
 
     await post.deleteOne();
-    res.json({ message: 'Post deleted' });
+    res.json({ message: "Post deleted" });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -140,13 +158,13 @@ export const deletePost = async (req, res) => {
 export const likePost = async (req, res) => {
   try {
     const post = await Post.findById(req.params.id);
-    if (!post) return res.status(404).json({ message: 'Post not found' });
+    if (!post) return res.status(404).json({ message: "Post not found" });
 
     const userId = req.user._id.toString();
-    if (!post.likes.map(l => l.toString()).includes(userId)) {
+    if (!post.likes.map((l) => l.toString()).includes(userId)) {
       post.likes.push(req.user._id);
     } else {
-      post.likes = post.likes.filter(u => u.toString() !== userId);
+      post.likes = post.likes.filter((u) => u.toString() !== userId);
     }
 
     await post.save();
@@ -160,10 +178,10 @@ export const likePost = async (req, res) => {
 export const commentPost = async (req, res) => {
   try {
     const { text } = req.body;
-    if (!text) return res.status(400).json({ message: 'Comment text required' });
+    if (!text) return res.status(400).json({ message: "Comment text required" });
 
     const post = await Post.findById(req.params.id);
-    if (!post) return res.status(404).json({ message: 'Post not found' });
+    if (!post) return res.status(404).json({ message: "Post not found" });
 
     const comment = await Comment.create({
       text,
@@ -175,10 +193,10 @@ export const commentPost = async (req, res) => {
     await post.save();
 
     const updatedPost = await Post.findById(post._id)
-      .populate('author', 'username role')
+      .populate("author", "username role")
       .populate({
-        path: 'comments',
-        populate: { path: 'user', select: 'username' },
+        path: "comments",
+        populate: { path: "user", select: "username" },
       });
 
     res.json(updatedPost);
