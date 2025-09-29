@@ -4,23 +4,25 @@ import slugify from 'slugify';
 import path from 'path';
 import fs from 'fs';
 
-// ✅ Create a new post
+// -------------------- Helpers --------------------
+const buildMediaURL = (fileId) => `/uploads/${fileId}`; // Serve media via static route
+
+// -------------------- Create Post --------------------
 export const createPost = async (req, res) => {
   try {
     const { title, content, tags } = req.body;
-
     if (!title || !content) {
       return res.status(400).json({ message: 'Title and content are required' });
     }
 
-    // Generate safe slug
     const slug = slugify(title, { lower: true, strict: true });
 
-    // Handle uploaded files
+    // Handle multiple media files
     const media = req.files
       ? req.files.map(file => ({
           fileId: file.filename,
           mimeType: file.mimetype,
+          url: buildMediaURL(file.filename),
         }))
       : [];
 
@@ -40,7 +42,7 @@ export const createPost = async (req, res) => {
   }
 };
 
-// ✅ Get all posts
+// -------------------- Get All Posts --------------------
 export const getPosts = async (req, res) => {
   try {
     const posts = await Post.find()
@@ -57,7 +59,7 @@ export const getPosts = async (req, res) => {
   }
 };
 
-// ✅ Get single post by slug
+// -------------------- Get Single Post --------------------
 export const getPost = async (req, res) => {
   try {
     const post = await Post.findOne({ slug: req.params.slug })
@@ -74,7 +76,7 @@ export const getPost = async (req, res) => {
   }
 };
 
-// ✅ Update post
+// -------------------- Update Post --------------------
 export const updatePost = async (req, res) => {
   try {
     const post = await Post.findById(req.params.id);
@@ -94,13 +96,14 @@ export const updatePost = async (req, res) => {
     if (content) post.content = content;
     if (tags) post.tags = tags.split(',').map(t => t.trim());
 
-    // Handle new uploads
+    // Handle new media files
     if (req.files && req.files.length > 0) {
       const newMedia = req.files.map(file => ({
         fileId: file.filename,
         mimeType: file.mimetype,
+        url: buildMediaURL(file.filename),
       }));
-      post.media = [...post.media, ...newMedia];
+      post.media = [...post.media, ...newMedia]; // append new media
     }
 
     await post.save();
@@ -110,7 +113,7 @@ export const updatePost = async (req, res) => {
   }
 };
 
-// ✅ Delete post
+// -------------------- Delete Post --------------------
 export const deletePost = async (req, res) => {
   try {
     const post = await Post.findById(req.params.id);
@@ -121,13 +124,11 @@ export const deletePost = async (req, res) => {
       return res.status(403).json({ message: 'Not allowed' });
     }
 
-    // Delete media files from uploads
+    // Delete media files from uploads folder
     if (post.media && post.media.length > 0) {
       post.media.forEach(m => {
         const filePath = path.join(process.cwd(), 'uploads', m.fileId);
-        if (fs.existsSync(filePath)) {
-          fs.unlinkSync(filePath);
-        }
+        if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
       });
     }
 
@@ -138,7 +139,7 @@ export const deletePost = async (req, res) => {
   }
 };
 
-// ✅ Like/unlike post
+// -------------------- Like/Unlike Post --------------------
 export const likePost = async (req, res) => {
   try {
     const post = await Post.findById(req.params.id);
@@ -158,7 +159,7 @@ export const likePost = async (req, res) => {
   }
 };
 
-// ✅ Add comment
+// -------------------- Add Comment --------------------
 export const commentPost = async (req, res) => {
   try {
     const { text } = req.body;
