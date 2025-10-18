@@ -9,6 +9,7 @@ const CreateBlog = () => {
   const [tags, setTags] = useState("");
   const [image, setImage] = useState(null);
   const [preview, setPreview] = useState(null);
+  const [uploadDate, setUploadDate] = useState(""); // 🕒 New upload date field
   const navigate = useNavigate();
 
   const handleImageChange = (e) => {
@@ -38,6 +39,7 @@ const CreateBlog = () => {
       tags ? tags.split(",").map((t) => t.trim()) : []
     );
     if (image) formData.append("image", image);
+    if (uploadDate) formData.append("uploadDate", uploadDate); // ✅ add date to backend
 
     try {
       await API.post("/blogs", formData, {
@@ -81,6 +83,19 @@ const CreateBlog = () => {
             onChange={(e) => setTags(e.target.value)}
             className="w-full border-2 border-neonBlue p-2 rounded bg-darkBg text-white focus:outline-none focus:border-neonPink"
           />
+
+          {/* 🕒 Upload Date Picker */}
+          <div>
+            <label className="block mb-1 text-neonBlue font-semibold">
+              Upload Date & Time:
+            </label>
+            <input
+              type="datetime-local"
+              value={uploadDate}
+              onChange={(e) => setUploadDate(e.target.value)}
+              className="w-full border-2 border-neonBlue p-2 rounded bg-darkBg text-white focus:outline-none focus:border-neonPink"
+            />
+          </div>
 
           {/* Neon-style file chooser */}
           <div>
