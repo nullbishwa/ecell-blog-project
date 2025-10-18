@@ -1,0 +1,112 @@
+// This file defines the Express Router for handling chatbot requests.
+// It is written in pure JavaScript (CommonJS) for direct compatibility with Node.js environments.
+
+const express = require('express');
+// If you are on Node < v18, you must install node-fetch: npm install node-fetch
+// If on Node v18+, you can use the global fetch, but we'll stick to 'node-fetch' require
+// for maximum compatibility with existing setups.
+const fetch = require('node-fetch');
+
+const router = express.Router();
+
+// --- Configuration (Read from environment variables) ---
+const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY; 
+const APP_REFERER = process.env.APP_URL || 'https://ecell-blog-project.onrender.com'; 
+const APP_TITLE = "E-Cell Blog Assistant";
+const MODEL_NAME = "google/gemma-3-27b-it:free"; 
+const OPENROUTER_ENDPOINT = "https://openrouter.ai/api/v1/chat/completions";
+// --- End Configuration ---
+
+
+router.post('/', async (req, res) => {
+    // Removed type annotations from request/response and variables
+    const userMessage = req.body.message; 
+
+    // 1. Validation and Key Check
+    if (!OPENROUTER_API_KEY) {
+        // Log this error as it prevents functionality
+        console.error("Chatbot Error: OPENROUTER_API_KEY is not set.");
+        return res.status(503).json({ 
+            error: "Service Unavailable: API key is not configured.",
+            details: "Set OPENROUTER_API_KEY environment variable on the server."
+        });
+    }
+
+    if (!userMessage || typeof userMessage !== 'string') {
+        return res.status(400).json({ error: "Invalid or missing 'message' content in request body." });
+    }
+
+    // 2. Prepare the payload for OpenRouter
+    const apiPayload = {
+        "model": MODEL_NAME, 
+        "messages": [
+            { "role": "system", "content": "You are a helpful assistant for a blogging website. Answer user queries concisely." },
+            { "role": "user", "content": userMessage }
+        ],
+        "max_tokens": 500,
+        "temperature": 0.7
+    };
+
+    try {
+        // 3. Make the secure request to OpenRouter
+        const response = await fetch(OPENROUTER_ENDPOINT, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
+                "HTTP-Referer": APP_REFERER, // Required for OpenRouter
+                "X-Title": APP_TITLE // Required for OpenRouter
+            },
+            body: JSON.stringify(apiPayload)
+        });
+
+        // Safely read response as text first to catch upstream non-JSON errors
+        const responseText = await response.text();
+        let data; // Removed type annotation
+
+        try {
+            data = JSON.parse(responseText);
+        } catch (e) {
+            // If response is not valid JSON, it's an unexpected upstream error
+            console.error(`OpenRouter upstream non-JSON response (Status: ${response.status}):`, responseText.substring(0, 200));
+            return res.status(502).json({
+                error: "Bad Gateway: Upstream AI service returned an unparseable response.",
+                details: `Status ${response.status}. Response start: ${responseText.substring(0, 50)}...`
+            });
+        }
+        
+        // 4. Check for success (HTTP 200-299) AND expected content structure
+        if (response.ok && data.choices && data.choices.length > 0) {
+            const reply = data.choices[0].message.content; // Removed type annotation
+            // Send the successful reply back to the frontend
+            return res.json({ reply });
+        }
+        
+        // 5. Explicitly handle success status (200) but missing content
+        if (response.status >= 200 && response.status < 300) {
+            console.warn("OpenRouter API Warning: Successful status but missing choices/content.", JSON.stringify(data));
+            // Return an internal server error (500) to the client
+            return res.status(500).json({ 
+                error: "Internal Error: AI service failed to generate a reply despite successful connection.",
+                details: data.error?.message || 'Received 200 OK from AI service but no response content was found.'
+            });
+        }
+        
+        // 6. Handle known OpenRouter API errors (non-2xx status)
+        console.error("OpenRouter API Error (Non-2xx Status):", response.status, JSON.stringify(data));
+        return res.status(response.status || 500).json({ 
+            error: `AI Service Error (${response.status}): ${data.error?.message || 'Unexpected API response structure'}` 
+        });
+
+    } catch (error) { // Removed type annotation
+        // Handle network/internal errors (e.g., DNS, connection refused)
+        console.error("Chatbot Proxy Network/Internal Error:", error.message);
+        return res.status(500).json({ 
+            error: `Network Error: Could not connect to the AI service endpoint.`, 
+            details: error.message
+        });
+    }
+});
+
+// IMPORTANT FIX: Export the router using CommonJS module.exports syntax
+module.exports = router;
