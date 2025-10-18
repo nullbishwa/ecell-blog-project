@@ -35,6 +35,17 @@ const BlogDetails = () => {
     fetchComments();
   }, [id]);
 
+  // Format upload date
+  const formattedDate = blog.uploadDate
+    ? new Date(blog.uploadDate).toLocaleString("en-IN", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+    : null;
+
   // Like blog
   const handleLike = async () => {
     try {
@@ -128,8 +139,14 @@ const BlogDetails = () => {
           {blog.title}
         </motion.h1>
 
+        {/* Author and Upload Date */}
         <p className="text-graySoft mb-2 text-center">
-          by {blog.author?.name || "Unknown Author"} Created On : 16/09/2025
+          by <span className="text-neonBlue">{blog.author?.name || "Unknown Author"}</span>
+          {formattedDate && (
+            <span className="ml-2 text-sm text-gray-400">
+              | Uploaded: {formattedDate}
+            </span>
+          )}
         </p>
 
         {currentUser && blog.author?._id !== currentUser._id && (
@@ -300,7 +317,6 @@ const BlogDetails = () => {
             100% { border-image-source: linear-gradient(270deg, #ff00ff, #00ffff, #39ff14, #ff00ff); }
           }
 
-          /* Button pulse animation */
           .animated-btn {
             position: relative;
             overflow: hidden;
