@@ -13,6 +13,7 @@ const EditBlog = () => {
   const [image, setImage] = useState(null);
   const [preview, setPreview] = useState(null);
   const [currentImage, setCurrentImage] = useState(null);
+  const [uploadDate, setUploadDate] = useState(""); // 🕒 New upload date field
 
   const fetchBlog = async () => {
     try {
@@ -21,6 +22,14 @@ const EditBlog = () => {
       setContent(res.data.content);
       setTags(res.data.tags.join(","));
       setCurrentImage(res.data.image);
+
+      // Set uploadDate from existing blog if available
+      if (res.data.uploadDate) {
+        // Format date for input[type=datetime-local]
+        const dt = new Date(res.data.uploadDate);
+        const formatted = dt.toISOString().slice(0, 16);
+        setUploadDate(formatted);
+      }
     } catch (err) {
       alert(err.response?.data?.message || "Error fetching blog");
     }
@@ -49,6 +58,7 @@ const EditBlog = () => {
     formData.append("content", content);
     formData.append("tags", tags.split(","));
     if (image) formData.append("image", image);
+    if (uploadDate) formData.append("uploadDate", uploadDate); // ✅ include upload date
 
     try {
       await API.put(`/blogs/${id}`, formData, {
@@ -91,6 +101,19 @@ const EditBlog = () => {
             onChange={(e) => setTags(e.target.value)}
             className="w-full border-2 border-neonBlue p-2 rounded bg-darkBg text-white placeholder-gray-400"
           />
+
+          {/* 🕒 Upload Date Picker */}
+          <div>
+            <label className="block mb-1 text-neonBlue font-semibold">
+              Upload Date & Time:
+            </label>
+            <input
+              type="datetime-local"
+              value={uploadDate}
+              onChange={(e) => setUploadDate(e.target.value)}
+              className="w-full border-2 border-neonBlue p-2 rounded bg-darkBg text-white focus:outline-none focus:border-neonPink"
+            />
+          </div>
 
           {currentImage && !preview && (
             <img
