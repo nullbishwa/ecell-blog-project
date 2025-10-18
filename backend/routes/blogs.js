@@ -29,10 +29,11 @@ mongoose.connection.once("open", () => {
 
 // ------------------- ROUTES ------------------- //
 
-// CREATE BLOG with image upload
+
+// ✅ CREATE BLOG with optional uploadDate
 router.post("/", auth, upload.single("image"), async (req, res) => {
   try {
-    const { title, content, tags } = req.body;
+    const { title, content, tags, uploadDate } = req.body; // added uploadDate here
     let imageId = null;
 
     if (req.file) {
@@ -43,12 +44,14 @@ router.post("/", auth, upload.single("image"), async (req, res) => {
       imageId = uploadStream.id;
     }
 
+    // create blog
     const blog = new Blog({
       title,
       content,
       tags: Array.isArray(tags) ? tags : tags?.split(","),
       image: imageId,
       author: req.user._id,
+      uploadDate: uploadDate ? new Date(uploadDate) : Date.now(), // ✅ assign upload date
     });
 
     await blog.save();
@@ -252,19 +255,6 @@ router.post("/:id/follow", auth, async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 });
-
-// routes/blogs.js
-
-
-
-
-
-
-
-
-
-
-
 // ADD COMMENT
 router.post("/:id/comment", auth, async (req, res) => {
   try {
@@ -292,6 +282,7 @@ router.get("/:id/comments", async (req, res) => {
 });
 
 module.exports = router;
+
 
 
 
