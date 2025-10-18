@@ -129,7 +129,7 @@ const BlogDetails = () => {
         </motion.h1>
 
         <p className="text-graySoft mb-2 text-center">
-          by {blog.author?.name || "Unknown Author"} Created On : 15/10/2025
+          by {blog.author?.name || "Unknown Author"} Created On : 16/09/2025
         </p>
 
         {currentUser && blog.author?._id !== currentUser._id && (
