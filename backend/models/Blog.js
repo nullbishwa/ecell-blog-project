@@ -10,16 +10,10 @@ const blogSchema = new mongoose.Schema(
     likes: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
     dislikes: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
     followers: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
-    shares: { type: Number, default: 0 }, // <-- added share count
+    shares: { type: Number, default: 0 }, // <-- share count
+    uploadDate: { type: Date, required: true, default: Date.now }, // 🆕 Added upload date
   },
   { timestamps: true }
 );
 
 module.exports = mongoose.model("Blog", blogSchema);
-
-
-
-
-
-
-
