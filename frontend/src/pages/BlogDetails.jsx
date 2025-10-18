@@ -157,7 +157,7 @@ const BlogDetails = () => {
 
         {blog.image && (
           <motion.img
-            src={`https://ecell-blog-project.onrender.com/api/blogs/image/${blog.image}`}
+            src={`https://ecell-blog-pn3h.onrender.com/api/blogs/image/${blog.image}`}
             alt={blog.title}
             className="w-full object-contain rounded-xl mb-4"
             initial={{ opacity: 0 }}
