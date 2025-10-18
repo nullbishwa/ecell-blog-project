@@ -14,7 +14,7 @@ const BlogCard = ({ blog }) => {
     >
       {blog.image && (
         <img
-          src={`https://ecell-blog-project.onrender.com/api/blogs/image/${blog.image}`}
+          src={`https://ecell-blog-pn3h.onrender.com/api/blogs/image/${blog.image}`}
           alt={blog.title}
           className="w-full h-48 object-cover rounded-xl mb-3"
         />
